@@ -47,7 +47,148 @@
 	
 	// 主体，其实就是tracker js
 	var tracker = {
+		// config
+		clientConfig : {
+			serverUrl : "http://node2/log.gif",
+			sessionTimeout : 360, // 360s -> 6min
+			maxWaitTime : 3600, // 3600s -> 60min -> 1h
+			ver : "1"
+		},
 		
+		cookieExpiresTime : 315360000000, // cookie过期时间，10年
+		
+		columns : {
+			// 发送到服务器的列名称
+			eventName : "en",
+			version : "ver",
+			platform : "pl",
+			sdk : "sdk",
+			uuid : "u_ud",
+			memberId : "u_mid",
+			sessionId : "u_sd",
+			clientTime : "c_time",
+			language : "l",
+			userAgent : "b_iev",
+			resolution : "b_rst",
+			currentUrl : "p_url",
+			referrerUrl : "p_ref",
+			title : "tt",
+			orderId : "oid",
+			orderName : "on",
+			currencyAmount : "cua",
+			currencyType : "cut",
+			paymentType : "pt",
+			category : "ca",
+			action : "ac",
+			kv : "kv_",
+			duration : "du"
+		},
+		
+		keys : {
+			pageView : "e_pv",
+			chargeRequestEvent : "e_crt",
+			launch : "e_l",
+			eventDurationEvent : "e_e",
+			sid : "bftrack_sid",
+			uuid : "bftrack_uuid",
+			mid : "bftrack_mid",
+			preVisitTime : "bftrack_previsit",
+		},
+		
+		/**
+		* 获取会话id
+		 */
+	
+		getSid : function() {
+			return CookieUtil.get(this.keys.sid)
+		},
+		
+		/**
+		* 保存会话id到cookie
+		 */
+		setSid : function(sid) {
+			if (sid) {
+				CookieUtil.setExt(this.keys.sid, sid);
+			}
+		},
+		
+		/**
+		* 获取uuid，从cookie中
+		 */
+		getUuid : function() {
+			return CookieUtil.get(this.keys.uuid);
+		},
+		
+		/**
+		* 保存uuid到cookie
+		 */
+		setUuid : function(uuid) {
+			if (uuid) {
+				CookieUtil.setExt(this.keys.uuid, uuid);
+			}
+		},
+		
+		/**
+		* 获取memberID
+		*/
+		getMemberId : function() {
+			return CookieUtil.get(this.keys.mid);
+		},
+		
+		/**
+		* 设置mid 
+		*/
+		setMemberId : function(mid) {
+			if (mid) {
+				CookieUtil.setExt(this.keys.mid,, mid);
+			}
+		},
+		
+		startSession : function() {
+			// 加载js就触发的方法
+			if (this.getSid()) {
+				// 会话id存在，表示uuid也存在
+				if (this.isSessionTimeout()) {
+					// 会话过期，产生新的会话
+					this.createNewSession();
+				} else {
+					// 会话没有过期，更新最近访问时间
+					this.updatePreVisitTime(new Date().getTime());
+				}
+			} else {
+				// 会话id不存在，表示uuid也不存在
+				this.creatNewSession();
+			}
+			this.onPageView();
+		},
+		
+		onLaunch : function(){
+			// 触发launch事件
+			var launch = {};
+			launch[this.columns.eventName] = this.keys.launch; // 设置事件名称
+			this.setCommonColums(launch); // 设置公用columns
+			this.sendDataToServer(this.parseParam(launch)); // 最终发送编码后的数据
+		},
+		
+		onPageView : function() {
+			// 触发page view事件
+			if (this.preCallApi()) {
+				var time = new Date().getTime();
+				var pageviewEvent = {};
+				pageviewEvent[this.columns.eventName] = this.keys.pageView;
+				pageviewEvent[this.columns.currentUrl] = window.location.href; // 设置当前url
+				pageviewEvent[this.columns.referrerUrl] = document.referrer; // 设置前一个页面的url
+				pageviewEvent[this.columns.title] = document.title; // 设置title
+				this.setCommonColumns(pageviewEvent); // 设置公用columns
+				this.sendDataToServer(this.parseParam(pageviewEvent)); // 最终发送编码后的数据
+				this.updatePreVisitTime(time);
+			}
+		},
+		
+		onChargeRequest : function(orderId, name, currencyAmount, currencyType, paymentType) {
+			// 触发订单产生事件
+			
+		},
 	};
 	
 	// 对外暴露的方法名称
