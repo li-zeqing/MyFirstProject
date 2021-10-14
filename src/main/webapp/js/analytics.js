@@ -187,7 +187,118 @@
 		
 		onChargeRequest : function(orderId, name, currencyAmount, currencyType, paymentType) {
 			// 触发订单产生事件
+			if (this.preCallApi()) {
+				if (!orderId || !currencyType || !paymentType) {
+					this.log("订单id、货币类型以及支付方式不能为空");
+					return;
+				}
+				
+				if (typeof (currencyAmount) == "number") {
+					// 金额必须是数字
+					var time = new Date().getTime();
+					var chargeRequestEvent = {};
+					chargeRequestEvent[this.columns.eventName] = this.keys.chargeRequestEvent;
+					chargeRequestEvent[this.columns.orderId] = orderId;
+					chargeRequestEvent[this.columns.orderName] = name;
+					chargeRequestEvent[this.columns.currencyAmount] = currencyAmount;
+					chargeRequestEvent[this.columns.currencyType] = currencyType;
+					chargeRequestEvent[this.columns.paymentType] = paymentType;
+					this.setCommonColumns(chargeRequestEvent); // 设置公用columns
+					this.sendDateToServer(this.parseParam(chargeRequestEvent)); // 最终发送编码后的数据
+					this.updatePreVisitTime(time);
+				} else {
+					this.log("订单金额必须是数字");
+					return;
+				}
+			}
+		},
+		
+		onEventDuration : function(category, action, map, duration) {
+			// 触发event事件
+			if (this.preCallApi()) {
+				if (category && action) {
+					var time = new Date().getTime();
+					var event = {};
+					event[this.columns.eventName] = this.keys.eventDurationEvent;
+					event[this.columns.category] = category;
+					event[this.columns.action] = action;
+					if (map) {
+						for (var k in map) {
+							if (k && map[k]) {
+								event[this.columns.kv + k] = map[k];
+							}
+						}
+					}
+					if (duration) {
+						event[this.columns.duration] = duration;
+					}
+					this.setCommonColumns(event); // 设置公用columns
+					this.sendDataToServer(this.parseParam(event)); // 最终发送编码后的数据
+					this.updatePreVisitTime(time);
+				} else {
+					this.log("category和action不能为空");
+				}
+			}
+		},
+		
+		/**
+		* 执行对外方法前必须执行的方法 
+		*/
+		preCallApi : function() {
+			if (this.isSessionTimeout()) {
+				// 如果为true，表示需要新建
+				this.startSession();
+			} else {
+				this.updatePreVisitTime(new Date().getTime());
+			}
+			return true;
+		},
+		
+		sendDataToServer : function(data) {
 			
+			alert(data);
+			
+			// 发送数据data到服务器，其中data是一个字符串
+			var that = this;
+			var i2 = new Image(1,1); // <img src="url"></img>
+			i2.onerror = function() {
+				// 这里可以进行重试操作
+			};
+			i2.src = this.clientConfig.serverUrl + "?" + data;
+		},
+		
+		/**
+		* 往data中添加发送到日志收集服务器的公用部分
+		*/
+		setCommonColumns : function(data) {
+			data[this.columns.version] = this.clientConfig.ver;
+			data[this.columns.platform] = "website";
+			data[this.columns.sdk] = "js";
+			data[this.columns.uuid] = this.getUuid(); // 设置用户id
+			data[this.columns.memberId] = this.getMemberId(); // 设置会员id
+			data[this.columns.sessionId] = this.getSid(); // 设置sid
+			data[this.columns.clientTime] = new Date().getTime(); //设置客户端时间
+			data[this.columns.language] = window.navigator.language; // 设置浏览器语言
+			data[this.columns.userAgent] = window.navigator.userAgent; // 设置浏览器类型
+			data[this.columns.resolution] = screen.width + "*" + screen.height; // 设置浏览器分辨率
+		},
+		
+		/**
+		* 创建新的会员，并判断是否是第一次访问页面，如果是，进行launch事件的发送。
+		*/
+		createNewSession : function() {
+			var time = new Date().getTime(); // 获取当前操作时间
+			// 1. 进行会话更新操作
+			var sid = this.generateId(); // 产生一个session id
+			this.setSid(sid);
+			this.updatePreVisitTime(time); // 更新最近访问时间
+			// 2. 进行uuid查看操作
+			if (!this.getUuid()) {
+				// uuid不存在，先创建uuid，然后保存到cookie，最后触发launch事件
+				var uuid = this.generateId(); // 产品uuid
+				this.setUuid(uuid);
+				this.onLaunch();
+			}
 		},
 	};
 	
