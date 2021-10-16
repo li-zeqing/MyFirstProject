@@ -300,20 +300,106 @@
 				this.onLaunch();
 			}
 		},
+		
+		/**
+		* 参数编码返回字符串
+		*/
+		parseParam : function(data) {
+			var params = "";
+			for (var e in data) {
+				if (e && data[e]) {
+					params += encodeURIComponent(e) + "="
+							+ encodeURIComponent(data[e]) + "&";
+				}
+			}
+			if (params) {
+				return params.substring(0, params.length -1);
+			} else {
+				return params;
+			}
+		},
+		
+		/**
+		* 产生uuid
+		*/
+		generateId : function() {
+			var chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+			var tmpid = [];
+			var r;
+			tmpid[8] = tmpid[13] = tmpid[18] = tmpid[23] = '-';
+			tmpid[14] = '4';
+			
+			for (i = 0; i < 36; i++) {
+				if (!tmpid[i]) {
+					r = 0 | Math.random() * 16;
+					tmpid[i] = chars[(i == 19) ? (r & 0x3) | 0x8 : r];
+				}
+			}
+			return tmpid.join('');
+		},
+		
+		/**
+		* 判断这个会话是否过期，查看当前时间和最近访问时间间隔是否小于this.clientCofig.sessionTimeout<br/>
+		* 如果是小于，返回false;否则返回true。
+		*/
+		isSessionTimeout : function() {
+			var time = new Date().getTime();
+			var preTime = CookieUtil.get(this.keys.preVisitTime);
+			if(preTime) {
+				// 最近访问时间存在，那么进行区间判断
+				return time - preTime > this.clientConfig.sessionTimeout * 1000;
+			}
+			return true;
+		},
+		
+		/**
+		* 更新最近访问时间
+		*/
+		updatePreVisitTime : function(time) {
+			CookieUtil.setExt(this.keys.preVisitTime,time);
+		},
+		
+		/**
+		* 打印日志
+		*/
+		log : function(msg) {
+			comsole.log(msg);
+		},
+		
 	};
 	
 	// 对外暴露的方法名称
 	window.__AE__ = {
-		
+		startSession : function() {
+			tracker.startSession();
+		},
+		onPageView : function() {
+			tracker.onPageView();
+		},
+		onChargeRequest : function(orderId, name, currencyAmount, currencyType, paymentType) {
+			tracker.onChargeRequest(orderId, name, currencyAmount, currencyType, paymentType);
+		},
+		onEventDuration : function (category, action, map, duration) {
+			tracker.onEventDuration(category, action, map, duration);
+		},
+		setMemberId : function(mid) {
+			tracker.setMemberId(mid);
+		}
 	};
 	
 	// 自动加载方法
 	var autoLoad = function() {
-		
+		// 进行参数设置
+		var _aelog_ = _aelog_ || window._aelog_ || [];
+		var memberId = null;
+		for (i = 0; i < _aelog_.length; i++) {
+			_aelog_[i][0] === "memberId" && (memberId = _aelog_[i][1]);
+		}
+		// 根据是给定memberid，设置memberid的值
+		memberId && __AE__.setMemberId(memberId);
+		// 启动session
+		__AE__.startSession();
 	};
 	
 	autoLoad();
 })();
-/**
- * 
- */
